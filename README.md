@@ -42,44 +42,68 @@ python buildmon.py --help-module resource_monitor
 python buildmon.py --ai-metadata
 ```
 
+## 📁 Project Structure
+
+```
+mcp-build-mon/
+├── README.md                    # Project documentation and usage guide
+├── LICENSE                      # MIT License
+├── requirements.txt             # Python dependencies (mcp, psutil)
+├── .gitignore                  # Git ignore patterns
+├── settings.json               # Default configuration for all modules
+├── buildmon.py                 # Main controller and CLI interface
+├── build_monitor_server.py     # MCP server for AI assistant integration
+├── API.md                      # Complete MCP tools API documentation
+└── modules/                    # Feature modules directory
+    ├── __init__.py             # Package initialization and exports
+    ├── resource_monitor.py     # CPU/memory monitoring with compact formats
+    ├── build_session.py        # Build session management and tracking
+    ├── build_history.py        # ETA prediction from historical data
+    ├── build_tracker.py        # Incremental build intelligence
+    ├── dependency_tracker.py   # Smart dependency change detection
+    ├── health_tracker.py       # Build quality scoring system
+    ├── fix_suggestions.py      # Error pattern recognition and solutions
+    └── build_context.py        # Build session context preservation
+```
+
 ## 🎯 Key Features
 
-### 🔍 Smart Error Analysis (Feature 1)
+### 🔍 Smart Error Analysis
 - Categorizes errors by type (header, linker, syntax, cmake, etc.)
 - Assigns severity levels (Critical, Fixable, Noise)
 - Token-efficient error prioritization for AI assistants
 
-### ⏱️ Build Time Prediction (Feature 2)  
+### ⏱️ Build Time Prediction
 - Maintains rolling history of build durations per target
 - Provides ETA estimates in ultra-compact format: `"eta": "45s@14:28"`
 - Learns from actual vs predicted performance
 
-### 🎯 Failure Pattern Recognition (Feature 3)
+### 🎯 Failure Pattern Recognition
 - Identifies 29+ common CMake and compilation error patterns
 - Provides targeted fix suggestions with confidence scores
 - Context-aware solutions for different environments
 
-### 📊 Incremental Build Intelligence (Feature 4)
+### 📊 Incremental Build Intelligence
 - Tracks file modifications to recommend optimal rebuild strategies
 - Categorizes changes (source, headers, config) for impact analysis
 - Smart recommendations: `no_build_needed`, `cmake_recommended`, `package_specific`
 
-### 💾 Resource Usage Monitoring (Feature 5)
+### 💾 Resource Usage Monitoring
 - Ultra-compact format: `"res": "85%/1.5g"` (CPU%/Memory)
 - Peak tracking: `"pk": "95/2g"` (only for significant spikes)
 - **Token efficient**: 4-8 tokens per build response
 
-### 🏥 Build Health Scoring (Feature 6)
+### 🏥 Build Health Scoring
 - Composite 0-100 score: success_rate(40%) + speed(25%) + warnings(20%) + resources(15%)
 - Historical tracking with rolling windows
 - Trend analysis for build quality assessment
 
-### 🔗 Dependency Change Detection (Feature 7)
+### 🔗 Dependency Change Detection
 - Monitors CMakeLists.txt, config files, external dependencies
 - Smart impact analysis with actionable recommendations
 - Detects when cmake regeneration or clean rebuilds are needed
 
-### 🛠️ Fix Suggestions Database (Feature 8)
+### 🛠️ Fix Suggestions Database
 - **29 comprehensive fix patterns** across 7 categories
 - **Environment-aware commands** (Debian, RedHat, Arch)
 - **Multi-level fixes**: Quick (1-2 commands), Medium (3-5), Complex (6+)
