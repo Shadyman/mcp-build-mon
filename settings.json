@@ -1,0 +1,75 @@
+{
+  "version": "1.0.0",
+  "modules": {
+    "resource_monitor": {
+      "enabled": true,
+      "sample_interval": 2.5,
+      "include_peaks": true,
+      "min_cpu_threshold": 50.0,
+      "min_memory_threshold": 500
+    },
+    "build_tracker": {
+      "enabled": true,
+      "max_tracked_files": 1000,
+      "file_patterns": [
+        "**/*.cc",
+        "**/*.cpp", 
+        "**/*.c",
+        "**/*.h",
+        "**/*.hpp",
+        "**/CMakeLists.txt",
+        "**/*.cmake",
+        "**/*.cfg"
+      ]
+    },
+    "build_history": {
+      "enabled": true,
+      "max_history_per_target": 10,
+      "history_file": "build_history.json"
+    },
+    "dependency_tracker": {
+      "enabled": true,
+      "scan_interval": 60,
+      "dependency_patterns": [
+        "**/CMakeLists.txt",
+        "**/*.cmake",
+        "**/*.cfg",
+        "**/*.yaml",
+        "**/*.yml",
+        "**/package.json",
+        "**/requirements.txt"
+      ]
+    },
+    "health_tracker": {
+      "enabled": true,
+      "success_window": 20,
+      "trend_window": 10,
+      "weights": {
+        "success_rate": 0.40,
+        "speed": 0.25,
+        "warnings": 0.20,
+        "resource": 0.15
+      }
+    },
+    "fix_suggestions": {
+      "enabled": true,
+      "confidence_threshold": 70,
+      "max_suggestions": 3,
+      "include_commands": true,
+      "environment_detection": true
+    },
+    "build_context": {
+      "enabled": true,
+      "session_history_limit": 15,
+      "context_summary_threshold": 5,
+      "recommendation_confidence": 0.8
+    }
+  },
+  "global_settings": {
+    "debug_mode": false,
+    "log_level": "INFO",
+    "max_build_history": 50,
+    "token_optimization": true,
+    "ai_assistant_mode": true
+  }
+}
