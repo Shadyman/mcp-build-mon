@@ -126,6 +126,7 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
     """
     try:
         session_id = str(uuid.uuid4())
+        logger.info(f"Creating BuildSession with id: {session_id}")
         session = BuildSession(
             id=session_id,
             process=None,
@@ -137,6 +138,7 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
             status_file=None,
             output_lines=[]
         )
+        logger.info("BuildSession created successfully")
         
         build_server.active_builds[session_id] = session
         
@@ -196,7 +198,7 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
         
         # Start monitoring
         if build_server.config["modules"]["resource_monitor"]["enabled"]:
-            build_server.resource_monitor.start_monitoring()
+            build_server.resource_monitor.start_sampling()
             
         return json.dumps({
             "session_id": session_id,
