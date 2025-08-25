@@ -238,7 +238,7 @@ def build_status(session_id: str = "") -> str:
             status = {
                 "session_id": session_id,
                 "status": session.status,
-                "target": session.target,
+                "target": session.targets[0] if session.targets else "default",
                 "start_time": session.start_time,
                 "duration": time.time() - session.start_time if session.start_time else 0
             }
@@ -255,7 +255,7 @@ def build_status(session_id: str = "") -> str:
             for sid, session in build_server.active_builds.items():
                 active_sessions[sid] = {
                     "status": session.status,
-                    "target": session.target,
+                    "target": session.targets[0] if session.targets else "default",
                     "duration": time.time() - session.start_time if session.start_time else 0
                 }
                 
