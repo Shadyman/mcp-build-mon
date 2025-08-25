@@ -126,10 +126,17 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
     """
     try:
         session_id = str(uuid.uuid4())
-        session = BuildSession()
-        session.session_id = session_id
-        session.target = target or "default"
-        session.start_time = time.time()
+        session = BuildSession(
+            id=session_id,
+            process=None,
+            status="initializing",
+            start_time=time.time(),
+            targets=[target] if target else ["default"],
+            cmake_result=None,
+            make_result=None,
+            status_file=None,
+            output_lines=[]
+        )
         
         build_server.active_builds[session_id] = session
         

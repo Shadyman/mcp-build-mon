@@ -1,0 +1,223 @@
+{
+  "version": "1.0.0",
+  "patterns": {
+    "missing_openssl_headers": {
+      "regex_patterns": [
+        "fatal error: openssl/ssl\\.h: No such file or directory",
+        "openssl/ssl\\.h: No such file or directory",
+        "#include.*openssl.*not found"
+      ],
+      "suggested_fix": "Install OpenSSL development packages",
+      "fix_commands": [
+        "sudo apt update",
+        "sudo apt install -y libssl-dev openssl",
+        "pkg-config --modversion openssl"
+      ],
+      "fix_type": "quick",
+      "confidence": 95,
+      "applicable_systems": [
+        "ubuntu",
+        "debian"
+      ]
+    },
+    "missing_zlib_headers": {
+      "regex_patterns": [
+        "fatal error: zlib\\.h: No such file or directory",
+        "zlib\\.h: No such file or directory"
+      ],
+      "suggested_fix": "Install zlib development package",
+      "fix_commands": [
+        "sudo apt update",
+        "sudo apt install -y zlib1g-dev"
+      ],
+      "fix_type": "quick",
+      "confidence": 95,
+      "applicable_systems": [
+        "ubuntu",
+        "debian"
+      ]
+    },
+    "missing_pthread": {
+      "regex_patterns": [
+        "undefined reference to `pthread_",
+        "ld:.*cannot find -lpthread"
+      ],
+      "suggested_fix": "Link pthread library or install development packages",
+      "fix_commands": [
+        "sudo apt install -y libc6-dev",
+        "# Add -lpthread to linker flags in CMakeLists.txt"
+      ],
+      "fix_type": "medium",
+      "confidence": 85,
+      "applicable_systems": [
+        "ubuntu",
+        "debian",
+        "linux"
+      ]
+    },
+    "cmake_missing_package": {
+      "regex_patterns": [
+        "CMake Error.*Could not find package (\\w+)",
+        "Could not find a package configuration file provided by \\\"(\\w+)\\\""
+      ],
+      "suggested_fix": "Install missing package development libraries",
+      "fix_commands": [
+        "# Install development package (example for OpenSSL):",
+        "sudo apt install -y libssl-dev",
+        "rm -rf build/CMakeCache.txt",
+        "cmake .."
+      ],
+      "fix_type": "medium",
+      "confidence": 88,
+      "applicable_systems": [
+        "ubuntu",
+        "debian"
+      ]
+    },
+    "cmake_prefix_path": {
+      "regex_patterns": [
+        "CMake Error.*CMAKE_PREFIX_PATH",
+        "Set CMAKE_PREFIX_PATH to a directory containing"
+      ],
+      "suggested_fix": "Set CMAKE_PREFIX_PATH to library installation directory",
+      "fix_commands": [
+        "export CMAKE_PREFIX_PATH=/usr/local:/opt/local:$CMAKE_PREFIX_PATH",
+        "cmake ..",
+        "# Or add -DCMAKE_PREFIX_PATH=/path/to/libraries to cmake command"
+      ],
+      "fix_type": "medium",
+      "confidence": 78,
+      "applicable_systems": [
+        "linux",
+        "macos"
+      ]
+    },
+    "cmake_build_type": {
+      "regex_patterns": [
+        "CMAKE_BUILD_TYPE is not set",
+        "Warning.*CMAKE_BUILD_TYPE"
+      ],
+      "suggested_fix": "Set CMAKE_BUILD_TYPE for optimized builds",
+      "fix_commands": [
+        "cmake -DCMAKE_BUILD_TYPE=Release ..",
+        "# Or for debug builds: cmake -DCMAKE_BUILD_TYPE=Debug .."
+      ],
+      "fix_type": "quick",
+      "confidence": 90,
+      "applicable_systems": [
+        "all"
+      ]
+    },
+    "undefined_reference": {
+      "regex_patterns": [
+        "undefined reference to `(\\w+)",
+        "ld:.*undefined symbol: (\\w+)"
+      ],
+      "suggested_fix": "Link missing library or check function implementation",
+      "fix_commands": [
+        "# Check if library is installed:",
+        "pkg-config --list-all | grep <library_name>",
+        "# Add library to CMakeLists.txt:",
+        "# target_link_libraries(<target> <library_name>)"
+      ],
+      "fix_type": "medium",
+      "confidence": 70,
+      "applicable_systems": [
+        "all"
+      ]
+    },
+    "multiple_definition": {
+      "regex_patterns": [
+        "multiple definition of `(\\w+)",
+        "duplicate symbol: (\\w+)"
+      ],
+      "suggested_fix": "Remove duplicate function definitions or fix header guards",
+      "fix_commands": [
+        "# Check for duplicate function implementations",
+        "grep -r \"function_name\" src/",
+        "# Add header guards or use inline for header-only functions"
+      ],
+      "fix_type": "complex",
+      "confidence": 75,
+      "applicable_systems": [
+        "all"
+      ]
+    },
+    "make_no_rule": {
+      "regex_patterns": [
+        "make.*No rule to make target",
+        "No targets specified and no makefile found"
+      ],
+      "suggested_fix": "Run cmake to generate Makefile or check target names",
+      "fix_commands": [
+        "cd build",
+        "cmake ..",
+        "make --help | grep -A5 'Available targets'"
+      ],
+      "fix_type": "quick",
+      "confidence": 88,
+      "applicable_systems": [
+        "all"
+      ]
+    },
+    "permission_denied": {
+      "regex_patterns": [
+        "Permission denied",
+        "cannot create.*Permission denied"
+      ],
+      "suggested_fix": "Fix file/directory permissions",
+      "fix_commands": [
+        "sudo chown -R $USER:$USER .",
+        "chmod -R 755 .",
+        "# Or run with appropriate permissions"
+      ],
+      "fix_type": "quick",
+      "confidence": 92,
+      "applicable_systems": [
+        "linux",
+        "macos"
+      ]
+    },
+    "disk_space": {
+      "regex_patterns": [
+        "No space left on device",
+        "disk full"
+      ],
+      "suggested_fix": "Free up disk space",
+      "fix_commands": [
+        "df -h .",
+        "du -h --max-depth=1 .",
+        "# Clean build directory: rm -rf build/*",
+        "# Or clean system: sudo apt autoremove && sudo apt autoclean"
+      ],
+      "fix_type": "medium",
+      "confidence": 95,
+      "applicable_systems": [
+        "all"
+      ]
+    },
+    "memory_exhausted": {
+      "regex_patterns": [
+        "virtual memory exhausted",
+        "out of memory",
+        "Cannot allocate memory"
+      ],
+      "suggested_fix": "Reduce parallel jobs or increase system memory",
+      "fix_commands": [
+        "# Reduce parallel jobs:",
+        "make -j2",
+        "# Or increase swap space if available"
+      ],
+      "fix_type": "quick",
+      "confidence": 90,
+      "applicable_systems": [
+        "all"
+      ]
+    }
+  },
+  "metadata": {
+    "last_updated": "2025-01-01",
+    "pattern_count": 11,
+    "default_confidence_threshold": 60
+  }
+}
