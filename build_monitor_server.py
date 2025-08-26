@@ -65,7 +65,7 @@ class BuildMonitorServer:
         """Initialize build monitor server."""
         self.project_root = Path(project_root) if project_root else Path.cwd()
         self.build_dir = self.project_root / "build"
-        self.active_builds: Dict[str, BuildSession] = {}
+        self.sessions_file = self.project_root / ".build_sessions.json"
         
         # Initialize modular components
         self.resource_monitor = ResourceMonitor()
@@ -77,6 +77,10 @@ class BuildMonitorServer:
         
         # Load configuration
         self.config = self._load_config()
+        
+        # Load or initialize active builds with persistence
+        self.active_builds: Dict[str, BuildSession] = {}
+        self._load_sessions()
         
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from settings.json"""
@@ -101,10 +105,80 @@ class BuildMonitorServer:
                 "build_context": {"enabled": True}
             }
         }
+    
+    def _load_sessions(self):
+        """Load persisted active build sessions."""
+        if not self.sessions_file.exists():
+            return
+        
+        try:
+            with open(self.sessions_file, 'r') as f:
+                session_data = json.load(f)
+            
+            # Restore sessions, checking if processes are still active
+            for session_id, data in session_data.items():
+                if self._is_process_still_active(data.get('pid')):
+                    # Recreate BuildSession object from persisted data
+                    session = BuildSession(
+                        id=session_id,
+                        process=None,  # Will be reconnected if needed
+                        status=data.get('status', 'running'),
+                        start_time=data.get('start_time', time.time()),
+                        targets=data.get('targets', []),
+                        cmake_result=data.get('cmake_result'),
+                        make_result=data.get('make_result'),
+                        status_file=data.get('status_file'),
+                        output_lines=data.get('output_lines', [])
+                    )
+                    self.active_builds[session_id] = session
+                    logger.info(f"Restored active session: {session_id}")
+                else:
+                    logger.info(f"Session {session_id} process no longer active")
+                    
+        except Exception as e:
+            logger.error(f"Failed to load sessions: {e}")
+    
+    def _save_sessions(self):
+        """Save active build sessions to disk."""
+        try:
+            session_data = {}
+            for session_id, session in self.active_builds.items():
+                session_data[session_id] = {
+                    'status': session.status,
+                    'start_time': session.start_time,
+                    'targets': session.targets,
+                    'cmake_result': session.cmake_result,
+                    'make_result': session.make_result,
+                    'status_file': session.status_file,
+                    'output_lines': session.output_lines[-100:] if session.output_lines else [],  # Keep last 100 lines
+                    'pid': session.process.pid if session.process else None
+                }
+            
+            with open(self.sessions_file, 'w') as f:
+                json.dump(session_data, f, indent=2)
+                
+        except Exception as e:
+            logger.error(f"Failed to save sessions: {e}")
+    
+    def _is_process_still_active(self, pid: Optional[int]) -> bool:
+        """Check if a process is still running."""
+        if not pid:
+            return False
+        
+        try:
+            if HAS_PSUTIL:
+                return psutil.pid_exists(pid)
+            else:
+                # Fallback: check if PID exists using kill signal 0
+                os.kill(pid, 0)
+                return True
+        except (OSError, ProcessLookupError):
+            return False
 
 # Initialize FastMCP server
 mcp = FastMCP("Build Monitor")
-build_server = BuildMonitorServer()
+
+# Global build server instance - will be initialized properly in main
 
 @mcp.tool()
 def build_start(target: str = "", cmake_first: bool = False, clean: bool = False, 
@@ -126,6 +200,12 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
         JSON string with build session info and initial status
     """
     try:
+        if build_server is None:
+            return json.dumps({
+                "status": "error", 
+                "error": "Build server not initialized"
+            })
+            
         session_id = str(uuid.uuid4())
         logger.info(f"Creating BuildSession with id: {session_id}")
         session = BuildSession(
@@ -142,6 +222,7 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
         logger.info("BuildSession created successfully")
         
         build_server.active_builds[session_id] = session
+        build_server._save_sessions()  # Persist new session
         
         # Prepare build directory
         build_dir = build_server.build_dir
@@ -152,7 +233,7 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
         if cmake_first:
             logger.info("Running cmake configuration...")
             cmake_result = subprocess.run(
-                ["cmake", "-S", str(project_root), "-B", str(build_dir)] + (cmake_args or []),
+                ["cmake", "-S", str(build_server.project_root), "-B", str(build_dir)] + (cmake_args or []),
                 capture_output=True,
                 text=True
             )
@@ -195,6 +276,7 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
         
         session.process = process
         session.status = "running"
+        build_server._save_sessions()  # Persist running status
         
         # Start monitoring
         if build_server.config["modules"]["resource_monitor"]["enabled"]:
@@ -230,10 +312,12 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
                 session.status = "completed" if process.returncode == 0 else "failed"
                 session.return_code = process.returncode
                 logger.info(f"Build {session_id} completed with return code {process.returncode}, total output lines: {len(session.output_lines)}")
+                build_server._save_sessions()  # Persist completion status
                 
             except Exception as e:
                 logger.error(f"Output monitoring failed for {session_id}: {e}")
                 session.status = "failed"
+                build_server._save_sessions()  # Persist failure status
         
         completion_thread = threading.Thread(target=monitor_completion_and_output, daemon=True)
         completion_thread.start()
@@ -265,6 +349,11 @@ def build_status(session_id: str = "") -> str:
         JSON string with build status information
     """
     try:
+        if build_server is None:
+            return json.dumps({
+                "error": "Build server not initialized"
+            })
+            
         if session_id:
             # Check specific session
             if session_id not in build_server.active_builds:
@@ -289,6 +378,7 @@ def build_status(session_id: str = "") -> str:
                 if poll is not None and session.status == "running":
                     session.status = "completed" if poll == 0 else "failed"
                     session.return_code = poll
+                    build_server._save_sessions()  # Persist status update
                 
                 status["running"] = poll is None
                 status["return_code"] = poll
@@ -341,6 +431,7 @@ def build_terminate(session_id: str) -> str:
             if session.process.poll() is None:
                 session.process.kill()
             session.status = "terminated"
+            build_server._save_sessions()  # Persist termination status
             
         return json.dumps({
             "session_id": session_id,
@@ -464,13 +555,18 @@ def build_output(session_id: str, lines: int = 10) -> str:
 if __name__ == "__main__":
     # Initialize project root from command line
     import argparse
+    global build_server
+    
     parser = argparse.ArgumentParser(description="MCP Build Monitor Server")
     parser.add_argument("--project-root", help="Root directory of CMake project")
     
     args, unknown = parser.parse_known_args()
     
+    # Initialize build_server with proper project root
     if args.project_root:
         build_server = BuildMonitorServer(project_root=args.project_root)
+    else:
+        build_server = BuildMonitorServer()
     
     # Run MCP server with stdio transport
     logger.info("Starting MCP Build Monitor Server...")
