@@ -497,6 +497,159 @@ result = await server.build_monitor_start({
 })
 ```
 
+---
+
+## 🔌 Current MCP Tools (Updated 2025-08-26)
+
+### `build_start`
+Start a cmake/make build with comprehensive monitoring.
+
+**Parameters:**
+- `target` (str): Build target (e.g., "package_grpc/fast")
+- `cmake_first` (bool): Run cmake before make (default: false)
+- `clean` (bool): Run clean before build (default: false)  
+- `parallel_jobs` (int): Parallel jobs (0 = auto-detect, default: 0)
+- `verbose` (bool): Enable verbose output (default: false)
+- `cmake_args` (List[str]): Additional cmake arguments
+- `make_args` (List[str]): Additional make arguments
+
+**Returns:**
+```json
+{
+  "session_id": "uuid-string",
+  "status": "started",
+  "target": "package_grpc/fast",
+  "pid": 12345,
+  "command": "make -j 4 package_grpc/fast"
+}
+```
+
+### `build_status`
+Check status of running builds with line count monitoring.
+
+**Parameters:**
+- `session_id` (str): Specific session ID (empty for all active builds)
+
+**Returns:**
+```json
+{
+  "session_id": "uuid-string",
+  "status": "running|completed|failed|terminated",
+  "target": "package_grpc/fast", 
+  "start_time": 1756191747.34,
+  "duration": 120.5,
+  "output_lines": 45,
+  "last_output": "Building CXX object src/packages/grpc/grpc.o",
+  "running": true,
+  "return_code": null
+}
+```
+
+**New Fields (Added 2025-08-26):**
+- `output_lines`: Total number of captured output lines
+- `last_output`: Most recent output line (null if no output yet)
+
+### `build_output` 
+Get the last n lines of build output for progress examination.
+
+**Parameters:**
+- `session_id` (str): Build session to examine
+- `lines` (int): Number of lines to retrieve (default: 10, max: 100)
+
+**Returns:**
+```json
+{
+  "session_id": "uuid-string",
+  "status": "running",
+  "total_lines": 1247,
+  "requested_lines": 20,
+  "returned_lines": 20,
+  "output": [
+    "Building CXX object CMakeFiles/package_grpc.dir/src/packages/grpc/grpc.cc.o",
+    "Building CXX object CMakeFiles/package_grpc.dir/src/packages/grpc/grpc_server.cc.o",
+    "..."
+  ],
+  "target": "package_grpc/fast",
+  "duration": 180.2
+}
+```
+
+### `build_terminate`
+Terminate a running build.
+
+**Parameters:**
+- `session_id` (str): Session ID to terminate
+
+**Returns:**
+```json
+{
+  "session_id": "uuid-string", 
+  "status": "terminated"
+}
+```
+
+### `build_conflicts`
+Check for existing build process conflicts.
+
+**Returns:**
+```json
+{
+  "conflicts": [
+    {
+      "pid": 12345,
+      "name": "make", 
+      "cmdline": "make -j 4 package_grpc/fast",
+      "duration": "120s",
+      "type": "build_process"
+    }
+  ],
+  "conflict_count": 1,
+  "recommendation": "wait_or_coordinate"
+}
+```
+
+### `get_modules`
+Get list of available build monitor modules and their status.
+
+**Returns:**
+```json
+{
+  "modules": {
+    "resource_monitor": {"enabled": true, "available": true},
+    "build_tracker": {"enabled": true, "available": true},
+    "health_tracker": {"enabled": false, "available": true}
+  }
+}
+```
+
+## 🔄 AI Assistant Usage Patterns
+
+### Progress Monitoring
+```python
+# Monitor build progress via line count changes
+status = mcp__build-monitor__build_status(session_id="...")
+if status['output_lines'] > previous_count:
+    print(f"Build active: {status['last_output']}")
+```
+
+### Output Examination  
+```python
+# Examine recent output for troubleshooting
+output = mcp__build-monitor__build_output(session_id="...", lines=20)
+for line in output['output']:
+    if 'error' in line.lower():
+        print(f"Error found: {line}")
+```
+
+### Smart Build Management
+```python
+# Check for conflicts before starting
+conflicts = mcp__build-monitor__build_conflicts()
+if conflicts['conflict_count'] == 0:
+    # Start build
+    result = mcp__build-monitor__build_start(target="package_grpc/fast")
+```
+
 ### Advanced Configuration
 ```python
 # Custom project configuration

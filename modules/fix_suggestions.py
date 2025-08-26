@@ -198,7 +198,7 @@ class FixSuggestionsDatabase:
                         "# Install development package (example for OpenSSL):",
                         "sudo apt install -y libssl-dev",
                         "rm -rf build/CMakeCache.txt",
-                        "cmake .."
+                        "cmake -S $(pwd) -B $(pwd)/build"
                     ],
                     "fix_type": "medium",
                     "confidence": 88,
@@ -212,7 +212,7 @@ class FixSuggestionsDatabase:
                     "suggested_fix": "Set CMAKE_PREFIX_PATH to library installation directory",
                     "fix_commands": [
                         "export CMAKE_PREFIX_PATH=/usr/local:/opt/local:$CMAKE_PREFIX_PATH",
-                        "cmake ..",
+                        "cmake -S $(pwd) -B $(pwd)/build",
                         "# Or add -DCMAKE_PREFIX_PATH=/path/to/libraries to cmake command"
                     ],
                     "fix_type": "medium",
@@ -276,7 +276,7 @@ class FixSuggestionsDatabase:
                     "suggested_fix": "Run cmake to generate Makefile or check target names",
                     "fix_commands": [
                         "cd build",
-                        "cmake ..",
+                        "cmake -S $(pwd) -B $(pwd)/build",
                         "make --help | grep -A5 'Available targets'"
                     ],
                     "fix_type": "quick",

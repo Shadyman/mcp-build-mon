@@ -93,7 +93,7 @@ class DependencyTracker:
                             "file": "CMakeLists.txt",
                             "type": "build_config",
                             "impact": "full_rebuild",
-                            "recommendation": "Run cmake .. && make clean && make"
+                            "recommendation": "Run cmake -S $(pwd) -B $(pwd)/build && make clean && make"
                         }]
                     },
                     "interpretation": "Build configuration changed, full rebuild required"
@@ -318,7 +318,7 @@ class DependencyTracker:
         
         if change_type == "build_config":
             if filename == "CMakeLists.txt":
-                return "full_rebuild", "Run cmake .. && make clean && make"
+                return "full_rebuild", "Run cmake -S $(pwd) -B $(pwd)/build && make clean && make"
             elif filename in ["configure.ac", "configure.in"]:
                 return "full_rebuild", "Run autoreconf -fiv && ./configure && make clean && make"
             elif filename == "meson.build":
@@ -338,9 +338,9 @@ class DependencyTracker:
         
         elif change_type == "dependency_manifest":
             if filename.startswith("conanfile"):
-                return "dependency_update", "Run conan install && cmake .. && make"
+                return "dependency_update", "Run conan install && cmake -S $(pwd) -B $(pwd)/build && make"
             elif filename.startswith("vcpkg"):
-                return "dependency_update", "Run vcpkg integrate install && cmake .. && make"
+                return "dependency_update", "Run vcpkg integrate install && cmake -S $(pwd) -B $(pwd)/build && make"
             elif filename == "requirements.txt":
                 return "dependency_update", "Run pip install -r requirements.txt && rebuild"
             elif filename == "package.json":

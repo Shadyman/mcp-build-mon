@@ -19,20 +19,13 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Working memory and runtime data
-working-memory/
-*.json.bak
-*.log
+MANIFEST
 
 # Virtual environments
-.env
-.venv
-env/
 venv/
+env/
 ENV/
-env.bak/
-venv.bak/
+build_monitor_venv/
 
 # IDE
 .vscode/
@@ -43,7 +36,34 @@ venv.bak/
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# MCP specific
-mcp_venv/
+# Build monitor specific
+working-memory/*.json
+*.log
+build_history.json
+session_data.json
+
+# Research and internal documentation
+RESEARCH_BRIEF.md
+
+# Sensitive configuration files
+*.local
+*.local.*
+.env
+.env.*
+config/local.json
+*secret*
+*password*
+*token*
+*key*
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/

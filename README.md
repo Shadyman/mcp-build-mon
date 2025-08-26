@@ -5,12 +5,14 @@ A comprehensive, AI-optimized build monitoring system for CMake/Make projects wi
 ## ✨ Overview
 
 The MCP Build Monitor transforms basic build execution into an intelligent, AI-assistant-friendly system that provides:
+- **Real-Time Output Monitoring** with line count tracking and progress visibility
 - **Smart Error Analysis** with categorization and fix suggestions
 - **Resource Usage Monitoring** with ultra-compact token formats  
 - **Build Time Prediction** using historical data
 - **Health Scoring** based on success rates and performance trends
 - **Dependency Change Detection** with impact analysis
 - **Incremental Build Intelligence** for efficient rebuilds
+- **Output Examination Tools** for AI-assisted troubleshooting
 
 ## 🚀 Quick Start
 
@@ -67,6 +69,14 @@ mcp-build-mon/
 ```
 
 ## 🎯 Key Features
+
+### 📺 Real-Time Output Monitoring (New!)
+- **Line Count Tracking**: Monitor build progress via output line count changes
+- **Live Output Capture**: Background thread captures build output in real-time
+- **Memory Efficient**: Rolling buffer maintains last 1000 lines to prevent memory issues
+- **Progress Visibility**: Detect when builds are actively compiling vs stuck
+- **Output Examination**: `build_output` tool retrieves last n lines for AI troubleshooting
+- **Smart Status Updates**: Enhanced `build_status` includes line count and latest output
 
 ### 🔍 Smart Error Analysis
 - Categorizes errors by type (header, linker, syntax, cmake, etc.)
@@ -129,11 +139,13 @@ help_data = manager.get_module_help("resource_monitor")
 
 ### MCP Tools Integration
 ```bash
-# Primary build tool - intelligent build execution
-build_monitor/start: Execute builds with intelligent monitoring
-build_monitor/status: Check running build status with ETA updates  
-build_monitor/conflicts: Detect conflicting build processes
-build_monitor/terminate: Stop running builds gracefully
+# Primary build tools - intelligent build execution with output monitoring
+build_start: Execute builds with comprehensive monitoring and line count tracking
+build_status: Check running build status with output line count and latest output
+build_output: Retrieve last n lines of build output for AI examination (NEW!)
+build_conflicts: Detect conflicting build processes
+build_terminate: Stop running builds gracefully
+get_modules: List available build monitor modules and status
 ```
 
 ### Token Efficiency

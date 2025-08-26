@@ -5,7 +5,8 @@ Universal build monitoring server for CMake/Make projects through MCP protocol.
 
 This server provides build monitoring capabilities through MCP tools:
 - build_start: Start cmake/make builds with full option support
-- build_status: Check status of running builds  
+- build_status: Check status of running builds with line count monitoring
+- build_output: Get last n lines of build output for progress examination
 - build_conflicts: Check for build process conflicts
 - build_terminate: Stop running builds
 
@@ -151,8 +152,7 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
         if cmake_first:
             logger.info("Running cmake configuration...")
             cmake_result = subprocess.run(
-                ["cmake", ".."] + (cmake_args or []),
-                cwd=build_dir,
+                ["cmake", "-S", str(project_root), "-B", str(build_dir)] + (cmake_args or []),
                 capture_output=True,
                 text=True
             )
@@ -200,6 +200,44 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
         if build_server.config["modules"]["resource_monitor"]["enabled"]:
             build_server.resource_monitor.start_sampling()
             
+        # Start background completion and output monitoring
+        import threading
+        def monitor_completion_and_output():
+            """Background thread to capture output and detect build completion."""
+            try:
+                # Read output line by line to track progress
+                while True:
+                    line = process.stdout.readline()
+                    if line:
+                        session.output_lines.append(line.strip())
+                        # Keep only last 1000 lines to prevent memory issues
+                        if len(session.output_lines) > 1000:
+                            session.output_lines = session.output_lines[-1000:]
+                    
+                    # Check if process completed
+                    if process.poll() is not None:
+                        break
+                
+                # Read any remaining output
+                remaining_output = process.stdout.read()
+                if remaining_output:
+                    remaining_lines = remaining_output.strip().split('\n')
+                    session.output_lines.extend(remaining_lines)
+                    if len(session.output_lines) > 1000:
+                        session.output_lines = session.output_lines[-1000:]
+                
+                # Update session status when complete
+                session.status = "completed" if process.returncode == 0 else "failed"
+                session.return_code = process.returncode
+                logger.info(f"Build {session_id} completed with return code {process.returncode}, total output lines: {len(session.output_lines)}")
+                
+            except Exception as e:
+                logger.error(f"Output monitoring failed for {session_id}: {e}")
+                session.status = "failed"
+        
+        completion_thread = threading.Thread(target=monitor_completion_and_output, daemon=True)
+        completion_thread.start()
+            
         return json.dumps({
             "session_id": session_id,
             "status": "started",
@@ -240,11 +278,18 @@ def build_status(session_id: str = "") -> str:
                 "status": session.status,
                 "target": session.targets[0] if session.targets else "default",
                 "start_time": session.start_time,
-                "duration": time.time() - session.start_time if session.start_time else 0
+                "duration": time.time() - session.start_time if session.start_time else 0,
+                "output_lines": len(session.output_lines),
+                "last_output": session.output_lines[-1] if session.output_lines else None
             }
             
             if session.process:
                 poll = session.process.poll()
+                # Update session status if process completed but status not yet updated
+                if poll is not None and session.status == "running":
+                    session.status = "completed" if poll == 0 else "failed"
+                    session.return_code = poll
+                
                 status["running"] = poll is None
                 status["return_code"] = poll
                 
@@ -256,7 +301,9 @@ def build_status(session_id: str = "") -> str:
                 active_sessions[sid] = {
                     "status": session.status,
                     "target": session.targets[0] if session.targets else "default",
-                    "duration": time.time() - session.start_time if session.start_time else 0
+                    "duration": time.time() - session.start_time if session.start_time else 0,
+                    "output_lines": len(session.output_lines),
+                    "last_output": session.output_lines[-1] if session.output_lines else None
                 }
                 
             return json.dumps({
@@ -367,6 +414,49 @@ def get_modules() -> str:
         
     except Exception as e:
         logger.error(f"Module listing failed: {e}")
+        return json.dumps({
+            "error": str(e)
+        })
+
+@mcp.tool()
+def build_output(session_id: str, lines: int = 10) -> str:
+    """
+    Get the last n lines of build output from a session.
+    
+    Args:
+        session_id: Session ID to get output from
+        lines: Number of lines to retrieve (default: 10, max: 100)
+        
+    Returns:
+        JSON string with output lines and session info
+    """
+    try:
+        if session_id not in build_server.active_builds:
+            return json.dumps({
+                "error": f"Session {session_id} not found"
+            })
+        
+        session = build_server.active_builds[session_id]
+        
+        # Limit lines to reasonable maximum
+        lines = min(lines, 100)
+        
+        # Get the last n lines
+        output_lines = session.output_lines[-lines:] if session.output_lines else []
+        
+        return json.dumps({
+            "session_id": session_id,
+            "status": session.status,
+            "total_lines": len(session.output_lines),
+            "requested_lines": lines,
+            "returned_lines": len(output_lines),
+            "output": output_lines,
+            "target": session.targets[0] if session.targets else "default",
+            "duration": time.time() - session.start_time if session.start_time else 0
+        })
+        
+    except Exception as e:
+        logger.error(f"Output retrieval failed for {session_id}: {e}")
         return json.dumps({
             "error": str(e)
         })
