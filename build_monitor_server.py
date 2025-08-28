@@ -67,13 +67,28 @@ class BuildMonitorServer:
         self.build_dir = self.project_root / "build"
         self.sessions_file = self.project_root / ".build_sessions.json"
         
-        # Initialize modular components
+        # Initialize modular components with proper working-memory paths
+        working_memory_dir = Path(__file__).parent / "working-memory"
+        working_memory_dir.mkdir(exist_ok=True)
+        
         self.resource_monitor = ResourceMonitor()
-        self.build_tracker = IncrementalBuildTracker()
-        self.build_history = BuildHistoryManager()
-        self.dependency_tracker = DependencyTracker()
-        self.health_tracker = HealthScoreTracker()
-        self.fix_suggestions = FixSuggestionsDatabase()
+        self.build_tracker = IncrementalBuildTracker(
+            tracker_file=str(working_memory_dir / "build_tracker.json"),
+            project_root=str(self.project_root)
+        )
+        self.build_history = BuildHistoryManager(
+            history_file=str(working_memory_dir / "build_history.json")
+        )
+        self.dependency_tracker = DependencyTracker(
+            tracker_file=str(working_memory_dir / "dependency_tracker.json"),
+            project_root=str(self.project_root)
+        )
+        self.health_tracker = HealthScoreTracker(
+            tracker_file=str(working_memory_dir / "health_tracker.json")
+        )
+        self.fix_suggestions = FixSuggestionsDatabase(
+            suggestions_file=str(working_memory_dir / "fix_suggestions.json")
+        )
         
         # Load configuration
         self.config = self._load_config()
@@ -312,6 +327,32 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
                 session.status = "completed" if process.returncode == 0 else "failed"
                 session.return_code = process.returncode
                 logger.info(f"Build {session_id} completed with return code {process.returncode}, total output lines: {len(session.output_lines)}")
+                
+                # Update working-memory components when build completes
+                if process.returncode == 0:  # Successful build
+                    try:
+                        build_duration = time.time() - session.start_time
+                        logger.info(f"Updating working-memory for build {session_id}, targets: {session.targets}, duration: {build_duration}")
+                        
+                        # Record successful build in build tracker
+                        logger.info("Calling build_tracker.record_successful_build...")
+                        build_server.build_tracker.record_successful_build(session.targets)
+                        
+                        # Update build history with duration
+                        logger.info("Calling build_history.record_build_duration...")
+                        build_server.build_history.record_build_duration(session.targets, build_duration)
+                        
+                        # Update health tracker
+                        logger.info("Calling health_tracker.record_build_completion...")
+                        build_server.health_tracker.record_build_completion(session.targets, True, 
+                                                                            build_duration, [], {})
+                        
+                        logger.info(f"Successfully updated working-memory components for build {session_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to update working-memory components: {e}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+                
                 build_server._save_sessions()  # Persist completion status
                 
             except Exception as e:
