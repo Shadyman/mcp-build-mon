@@ -78,6 +78,19 @@ mcp-build-mon/
 - **Output Examination**: `build_output` tool retrieves last n lines for AI troubleshooting
 - **Smart Status Updates**: Enhanced `build_status` includes line count and latest output
 
+### 💾 Session Persistence & Working Memory (New!)
+- **Persistent Sessions**: Build sessions automatically saved to `.build_sessions.json` 
+- **State Recovery**: Sessions restored on server restart with process validation
+- **Working Memory**: All 6 modular components persist data across MCP calls:
+  - `build_tracker.json` - Successful builds & file change detection (159KB+ data)
+  - `build_history.json` - Duration tracking & performance metrics
+  - `health_tracker.json` - Build health scoring & success analysis  
+  - `dependency_tracker.json` - 300+ dependency files monitored
+  - `build_context.json` - Session context & build patterns
+  - `fix_suggestions.json` - Error fix recommendations database
+- **Cross-Call Continuity**: No more memory loss between MCP tool invocations
+- **Process Validation**: Dead processes automatically detected and cleaned up
+
 ### 🔍 Smart Error Analysis
 - Categorizes errors by type (header, linker, syntax, cmake, etc.)
 - Assigns severity levels (Critical, Fixable, Noise)

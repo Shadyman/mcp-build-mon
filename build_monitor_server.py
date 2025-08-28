@@ -244,76 +244,135 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
         if not build_dir.exists():
             build_dir.mkdir(parents=True)
             
-        # Handle cmake_first option
+        # Handle cmake_first option - run cmake asynchronously  
         if cmake_first:
-            logger.info("Running cmake configuration...")
-            cmake_result = subprocess.run(
-                ["cmake", "-S", str(build_server.project_root), "-B", str(build_dir)] + (cmake_args or []),
-                capture_output=True,
-                text=True
-            )
-            if cmake_result.returncode != 0:
-                session.status = "failed"
-                return json.dumps({
-                    "session_id": session_id,
-                    "status": "failed",
-                    "error": "cmake failed",
-                    "cmake_output": cmake_result.stderr
-                })
-        
-        # Prepare make command
-        make_cmd = ["make"]
-        if parallel_jobs > 0:
-            make_cmd.extend(["-j", str(parallel_jobs)])
-        elif parallel_jobs == 0:
-            make_cmd.extend(["-j", str(multiprocessing.cpu_count())])
-        
-        if verbose:
-            make_cmd.append("VERBOSE=1")
+            logger.info("Starting asynchronous cmake configuration...")
+            session.status = "cmake_running"
+            build_server._save_sessions()
             
-        if clean:
-            make_cmd.append("clean")
-            
-        if target:
-            make_cmd.append(target)
-            
-        if make_args:
-            make_cmd.extend(make_args)
-        
-        # Start build process
-        process = subprocess.Popen(
-            make_cmd,
-            cwd=build_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True
-        )
-        
-        session.process = process
-        session.status = "running"
-        build_server._save_sessions()  # Persist running status
-        
-        # Start monitoring
-        if build_server.config["modules"]["resource_monitor"]["enabled"]:
-            build_server.resource_monitor.start_sampling()
-            
-        # Start background completion and output monitoring
-        import threading
-        def monitor_completion_and_output():
-            """Background thread to capture output and detect build completion."""
-            try:
-                # Read output line by line to track progress
-                while True:
-                    line = process.stdout.readline()
-                    if line:
-                        session.output_lines.append(line.strip())
-                        # Keep only last 1000 lines to prevent memory issues
-                        if len(session.output_lines) > 1000:
-                            session.output_lines = session.output_lines[-1000:]
+            # Start cmake in background thread to avoid blocking MCP request
+            def run_cmake_then_make():
+                """Background thread to run cmake then start make process."""
+                try:
+                    # Run cmake as separate non-blocking process
+                    cmake_cmd = ["cmake", "-S", str(build_server.project_root), "-B", str(build_dir)] + (cmake_args or [])
+                    cmake_process = subprocess.Popen(
+                        cmake_cmd,
+                        cwd=build_dir,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True
+                    )
                     
-                    # Check if process completed
-                    if process.poll() is not None:
-                        break
+                    # Wait for cmake to complete with reasonable timeout
+                    try:
+                        cmake_output, _ = cmake_process.communicate(timeout=300)  # 5 minute timeout for cmake
+                        if cmake_process.returncode != 0:
+                            session.status = "failed"
+                            session.cmake_result = {"returncode": cmake_process.returncode, "output": cmake_output, "error": "cmake failed"}
+                            build_server._save_sessions()
+                            return
+                        
+                        # Store cmake result for reporting
+                        session.cmake_result = {"returncode": 0, "output": cmake_output}
+                        logger.info(f"CMake completed successfully for session {session_id}")
+                        
+                    except subprocess.TimeoutExpired:
+                        cmake_process.kill()
+                        session.status = "failed"
+                        session.cmake_result = {"returncode": -1, "output": "", "error": "cmake timed out after 5 minutes"}
+                        build_server._save_sessions()
+                        return
+                    
+                    # Now start the make process after successful cmake
+                    start_make_process(session, build_dir, make_cmd, target, cmake_args, make_args, 
+                                     parallel_jobs, verbose, clean)
+                    
+                except Exception as e:
+                    logger.error(f"Error in cmake background thread: {e}")
+                    session.status = "failed"
+                    session.cmake_result = {"returncode": -1, "output": "", "error": f"cmake thread error: {str(e)}"}
+                    build_server._save_sessions()
+            
+            # Start cmake in background thread  
+            import threading
+            cmake_thread = threading.Thread(target=run_cmake_then_make, daemon=True)
+            cmake_thread.start()
+            
+            # Return immediately while cmake runs in background
+            return json.dumps({
+                "session_id": session_id,
+                "status": "cmake_running",
+                "message": "CMake configuration started in background. Use build_status to monitor progress.",
+                "target": target or "default"
+            })
+        
+        # Continue with regular make process (no cmake_first)
+        start_make_process(session, build_dir, target, cmake_args, make_args, parallel_jobs, verbose, clean)
+        
+        return json.dumps({
+            "session_id": session_id,
+            "status": "started", 
+            "target": target or "default",
+            "pid": session.process.pid if session.process else None,
+            "command": " ".join(session.process.args) if session.process and hasattr(session.process, 'args') else "make"
+        })
+
+def start_make_process(session, build_dir, target, cmake_args, make_args, parallel_jobs, verbose, clean):
+    """Helper function to start the make process after cmake completes."""
+    # Prepare make command
+    make_cmd = ["make"]
+    if parallel_jobs > 0:
+        make_cmd.extend(["-j", str(parallel_jobs)])
+    elif parallel_jobs == 0:
+        make_cmd.extend(["-j", str(multiprocessing.cpu_count())])
+    
+    if verbose:
+        make_cmd.append("VERBOSE=1")
+        
+    if clean:
+        make_cmd.append("clean")
+        
+    if target:
+        make_cmd.append(target)
+        
+    if make_args:
+        make_cmd.extend(make_args)
+    
+    # Start build process
+    process = subprocess.Popen(
+        make_cmd,
+        cwd=build_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
+    )
+    
+    session.process = process
+    session.status = "running"
+    build_server._save_sessions()  # Persist running status
+    
+    # Start monitoring
+    if build_server.config["modules"]["resource_monitor"]["enabled"]:
+        build_server.resource_monitor.start_sampling()
+        
+    # Start background completion and output monitoring
+    import threading
+    def monitor_completion_and_output():
+        """Background thread to capture output and detect build completion."""
+        try:
+            # Read output line by line to track progress
+            while True:
+                line = process.stdout.readline()
+                if line:
+                    session.output_lines.append(line.strip())
+                    # Keep only last 1000 lines to prevent memory issues
+                    if len(session.output_lines) > 1000:
+                        session.output_lines = session.output_lines[-1000:]
+                
+                # Check if process completed
+                if process.poll() is not None:
+                    break
                 
                 # Read any remaining output
                 remaining_output = process.stdout.read()
@@ -344,8 +403,18 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
                         
                         # Update health tracker
                         logger.info("Calling health_tracker.record_build_completion...")
-                        build_server.health_tracker.record_build_completion(session.targets, True, 
-                                                                            build_duration, [], {})
+                        build_server.health_tracker.record_build_completion(
+                            session.targets, 
+                            True, 
+                            build_duration, 
+                            predicted_duration=None, 
+                            warning_count=0, 
+                            resource_usage=None
+                        )
+                        
+                        # Update dependency tracker
+                        logger.info("Calling dependency_tracker.detect_dependency_changes...")
+                        build_server.dependency_tracker.detect_dependency_changes()
                         
                         logger.info(f"Successfully updated working-memory components for build {session_id}")
                     except Exception as e:
