@@ -267,31 +267,41 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
                     # Wait for cmake to complete with reasonable timeout
                     try:
                         cmake_output, _ = cmake_process.communicate(timeout=300)  # 5 minute timeout for cmake
+                        
+                        # Add cmake output to session output_lines for visibility
+                        if cmake_output:
+                            cmake_lines = cmake_output.strip().split('\n')
+                            session.output_lines.extend([f"[CMAKE] {line}" for line in cmake_lines])
+                        
                         if cmake_process.returncode != 0:
                             session.status = "failed"
                             session.cmake_result = {"returncode": cmake_process.returncode, "output": cmake_output, "error": "cmake failed"}
+                            session.output_lines.append(f"[CMAKE] FAILED with return code {cmake_process.returncode}")
                             build_server._save_sessions()
                             return
                         
                         # Store cmake result for reporting
                         session.cmake_result = {"returncode": 0, "output": cmake_output}
+                        session.output_lines.append("[CMAKE] Configuration completed successfully")
                         logger.info(f"CMake completed successfully for session {session_id}")
                         
                     except subprocess.TimeoutExpired:
                         cmake_process.kill()
                         session.status = "failed"
                         session.cmake_result = {"returncode": -1, "output": "", "error": "cmake timed out after 5 minutes"}
+                        session.output_lines.append("[CMAKE] ERROR: Process timed out after 5 minutes")
                         build_server._save_sessions()
                         return
                     
                     # Now start the make process after successful cmake
-                    start_make_process(session, build_dir, make_cmd, target, cmake_args, make_args, 
+                    start_make_process(session, build_dir, target, cmake_args, make_args, 
                                      parallel_jobs, verbose, clean)
                     
                 except Exception as e:
                     logger.error(f"Error in cmake background thread: {e}")
                     session.status = "failed"
                     session.cmake_result = {"returncode": -1, "output": "", "error": f"cmake thread error: {str(e)}"}
+                    session.output_lines.append(f"[CMAKE] ERROR: {str(e)}")
                     build_server._save_sessions()
             
             # Start cmake in background thread  
@@ -317,128 +327,6 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
             "pid": session.process.pid if session.process else None,
             "command": " ".join(session.process.args) if session.process and hasattr(session.process, 'args') else "make"
         })
-
-def start_make_process(session, build_dir, target, cmake_args, make_args, parallel_jobs, verbose, clean):
-    """Helper function to start the make process after cmake completes."""
-    # Prepare make command
-    make_cmd = ["make"]
-    if parallel_jobs > 0:
-        make_cmd.extend(["-j", str(parallel_jobs)])
-    elif parallel_jobs == 0:
-        make_cmd.extend(["-j", str(multiprocessing.cpu_count())])
-    
-    if verbose:
-        make_cmd.append("VERBOSE=1")
-        
-    if clean:
-        make_cmd.append("clean")
-        
-    if target:
-        make_cmd.append(target)
-        
-    if make_args:
-        make_cmd.extend(make_args)
-    
-    # Start build process
-    process = subprocess.Popen(
-        make_cmd,
-        cwd=build_dir,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True
-    )
-    
-    session.process = process
-    session.status = "running"
-    build_server._save_sessions()  # Persist running status
-    
-    # Start monitoring
-    if build_server.config["modules"]["resource_monitor"]["enabled"]:
-        build_server.resource_monitor.start_sampling()
-        
-    # Start background completion and output monitoring
-    import threading
-    def monitor_completion_and_output():
-        """Background thread to capture output and detect build completion."""
-        try:
-            # Read output line by line to track progress
-            while True:
-                line = process.stdout.readline()
-                if line:
-                    session.output_lines.append(line.strip())
-                    # Keep only last 1000 lines to prevent memory issues
-                    if len(session.output_lines) > 1000:
-                        session.output_lines = session.output_lines[-1000:]
-                
-                # Check if process completed
-                if process.poll() is not None:
-                    break
-                
-                # Read any remaining output
-                remaining_output = process.stdout.read()
-                if remaining_output:
-                    remaining_lines = remaining_output.strip().split('\n')
-                    session.output_lines.extend(remaining_lines)
-                    if len(session.output_lines) > 1000:
-                        session.output_lines = session.output_lines[-1000:]
-                
-                # Update session status when complete
-                session.status = "completed" if process.returncode == 0 else "failed"
-                session.return_code = process.returncode
-                logger.info(f"Build {session_id} completed with return code {process.returncode}, total output lines: {len(session.output_lines)}")
-                
-                # Update working-memory components when build completes
-                if process.returncode == 0:  # Successful build
-                    try:
-                        build_duration = time.time() - session.start_time
-                        logger.info(f"Updating working-memory for build {session_id}, targets: {session.targets}, duration: {build_duration}")
-                        
-                        # Record successful build in build tracker
-                        logger.info("Calling build_tracker.record_successful_build...")
-                        build_server.build_tracker.record_successful_build(session.targets)
-                        
-                        # Update build history with duration
-                        logger.info("Calling build_history.record_build_duration...")
-                        build_server.build_history.record_build_duration(session.targets, build_duration)
-                        
-                        # Update health tracker
-                        logger.info("Calling health_tracker.record_build_completion...")
-                        build_server.health_tracker.record_build_completion(
-                            session.targets, 
-                            True, 
-                            build_duration, 
-                            predicted_duration=None, 
-                            warning_count=0, 
-                            resource_usage=None
-                        )
-                        
-                        # Update dependency tracker
-                        logger.info("Calling dependency_tracker.detect_dependency_changes...")
-                        build_server.dependency_tracker.detect_dependency_changes()
-                        
-                        logger.info(f"Successfully updated working-memory components for build {session_id}")
-                    except Exception as e:
-                        logger.error(f"Failed to update working-memory components: {e}")
-                        import traceback
-                        logger.error(traceback.format_exc())
-                
-                build_server._save_sessions()  # Persist completion status
-                
-            except Exception as e:
-                logger.error(f"Output monitoring failed for {session_id}: {e}")
-                session.status = "failed"
-                build_server._save_sessions()  # Persist failure status
-        
-        completion_thread = threading.Thread(target=monitor_completion_and_output, daemon=True)
-        completion_thread.start()
-            
-        return json.dumps({
-            "session_id": session_id,
-            "status": "started",
-            "target": target,
-            "pid": process.pid,
-            "command": " ".join(make_cmd)
-        })
         
     except Exception as e:
         logger.error(f"Build start failed: {e}")
@@ -446,6 +334,77 @@ def start_make_process(session, build_dir, target, cmake_args, make_args, parall
             "status": "error",
             "error": str(e)
         })
+
+def start_make_process(session, build_dir, target, cmake_args, make_args, parallel_jobs, verbose, clean):
+    """Start the make process in a separate thread to avoid blocking MCP requests."""
+    import subprocess
+    import threading
+    import time
+    
+    try:
+        logger.info(f"Starting make process for session {session.id}")
+        session.status = "running"
+        build_server._save_sessions()
+        
+        # Build the make command
+        cmd = ['make']
+        if target:
+            cmd.append(target)
+        if parallel_jobs and parallel_jobs > 1:
+            cmd.extend(['-j', str(parallel_jobs)])
+        if verbose:
+            cmd.append('VERBOSE=1')
+        if clean:
+            cmd.append('clean')
+        
+        # Add any additional make arguments
+        if make_args:
+            cmd.extend(make_args)
+        
+        logger.info(f"Running make command: {' '.join(cmd)} in {build_dir}")
+        
+        # Start make process
+        process = subprocess.Popen(
+            cmd,
+            cwd=build_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1
+        )
+        
+        session.process = process
+        build_server._save_sessions()
+        
+        # Monitor the process output
+        output_lines = []
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                break
+            output_lines.append(line.rstrip())
+            session.output_lines.append(f"[MAKE] {line.rstrip()}")
+        
+        # Wait for process completion
+        return_code = process.wait()
+        
+        if return_code == 0:
+            session.status = "completed"
+            session.return_code = 0
+            logger.info(f"Make completed successfully for session {session.id}")
+        else:
+            session.status = "failed"
+            session.return_code = return_code
+            logger.error(f"Make failed with return code {return_code} for session {session.id}")
+        
+        build_server._save_sessions()
+        
+    except Exception as e:
+        logger.error(f"Make process failed for session {session.id}: {e}")
+        session.status = "failed"
+        session.return_code = -1
+        session.output_lines.append(f"[MAKE] ERROR: {str(e)}")
+        build_server._save_sessions()
 
 @mcp.tool()
 def build_status(session_id: str = "") -> str:

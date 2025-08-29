@@ -486,6 +486,41 @@ During active FluffOS build with `make -j 4`, the following parallel processes w
 
 ## Bug Reports and Anomalies
 
+### 🚨 URGENT: .build_sessions.json Naming Inconsistency
+**Date Reported**: 2025-08-28  
+**Status**: Investigation Required  
+**Priority**: URGENT - Git Repository Issue  
+**Reporter**: User
+
+**Issue Description**:
+The build monitor creates a hidden file `.build_sessions.json` (with dot prefix) but this file is not gitignored and appears in git status, causing confusion about whether it should be committed or ignored.
+
+**Problem**:
+- File is named with dot prefix (`.build_sessions.json`) suggesting it's a hidden config/cache file
+- File is NOT in `.gitignore` so it appears in `git status` 
+- Unclear if this should be tracked in version control or ignored as local state
+- Naming inconsistency suggests this was an oversight in implementation
+
+**Expected Resolution Options**:
+1. **Rename to `build_sessions.json`** (remove dot) if it should be version controlled
+2. **Add to `.gitignore`** if it's meant to be local-only session state
+3. **Move to proper cache directory** like `~/.cache/build-monitor/` or `/tmp/`
+
+**Current Impact**:
+- Developers unsure whether to commit or ignore the file
+- Git repository cleanliness affected
+- Inconsistent with standard conventions (dotfiles are usually hidden configs)
+
+**Investigation Needed**:
+1. Check if build monitor actually needs persistent session state across runs
+2. Determine if session data should be project-specific or system-wide
+3. Review if other MCP servers follow similar patterns
+4. Assess impact of changing filename on existing deployments
+
+**Recommended Priority**: URGENT - This affects git workflow and repository cleanliness
+
+---
+
 ### Build Process Execution Anomaly
 **Date Reported**: 2025-08-25  
 **Status**: Investigation Required  
