@@ -2,6 +2,29 @@
 
 ## High Priority Features
 
+### 🔧 URGENT: Fix MCP Timeout and Build Flow Issues
+**Status**: Needs Implementation  
+**Priority**: HIGH - Core Functionality Issue  
+**Description**: Address timeout issues and improve cmake/make execution flow
+
+**Issues Identified**:
+1. **MCP Timeout Errors**: Intermittent "MCP error -32001: Request timed out" during build operations
+2. **Separated Build Phases**: CMake runs successfully but make phase doesn't automatically follow
+3. **Build Flow Logic**: Need unified cmake+make workflow vs separate phase execution
+
+**Required Fixes**:
+- [ ] Investigate and resolve MCP timeout root causes (likely async/threading related)
+- [ ] Implement unified build flow: cmake_first=true should automatically run make after cmake success
+- [ ] Add timeout configuration options for different build phases (cmake: 5min, make: 30min+)
+- [ ] Improve error handling and session state management during timeouts
+- [ ] Add build retry logic for timeout failures
+- [ ] Better integration between background threads and MCP request handling
+
+**Technical Details**:
+- Current implementation runs cmake async but may not properly chain to make phase
+- Timeout handling needs improvement for long-running builds
+- Session management should be more robust during build phase transitions
+
 ### ⚡ URGENT: Deliver Research Brief to Claude Opus 4.1
 **Status**: Ready for Delivery  
 **Priority**: URGENT - High Impact Research  

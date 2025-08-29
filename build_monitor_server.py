@@ -322,10 +322,10 @@ def build_start(target: str = "", cmake_first: bool = False, clean: bool = False
         
         return json.dumps({
             "session_id": session_id,
-            "status": "started", 
+            "status": "starting", 
             "target": target or "default",
-            "pid": session.process.pid if session.process else None,
-            "command": " ".join(session.process.args) if session.process and hasattr(session.process, 'args') else "make"
+            "message": "Make process started in background. Use build_status to monitor progress.",
+            "command": f"make {target or ''}"
         })
         
     except Exception as e:
@@ -341,70 +341,103 @@ def start_make_process(session, build_dir, target, cmake_args, make_args, parall
     import threading
     import time
     
-    try:
-        logger.info(f"Starting make process for session {session.id}")
-        session.status = "running"
-        build_server._save_sessions()
-        
-        # Build the make command
-        cmd = ['make']
-        if target:
-            cmd.append(target)
-        if parallel_jobs and parallel_jobs > 1:
-            cmd.extend(['-j', str(parallel_jobs)])
-        if verbose:
-            cmd.append('VERBOSE=1')
-        if clean:
-            cmd.append('clean')
-        
-        # Add any additional make arguments
-        if make_args:
-            cmd.extend(make_args)
-        
-        logger.info(f"Running make command: {' '.join(cmd)} in {build_dir}")
-        
-        # Start make process
-        process = subprocess.Popen(
-            cmd,
-            cwd=build_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            bufsize=1
-        )
-        
-        session.process = process
-        build_server._save_sessions()
-        
-        # Monitor the process output
-        output_lines = []
-        while True:
-            line = process.stdout.readline()
-            if not line:
-                break
-            output_lines.append(line.rstrip())
-            session.output_lines.append(f"[MAKE] {line.rstrip()}")
-        
-        # Wait for process completion
-        return_code = process.wait()
-        
-        if return_code == 0:
-            session.status = "completed"
-            session.return_code = 0
-            logger.info(f"Make completed successfully for session {session.id}")
-        else:
+    def run_make_in_thread():
+        """Background thread function to run make without blocking MCP requests."""
+        try:
+            logger.info(f"Starting make process for session {session.id}")
+            session.status = "running"
+            build_server._save_sessions()
+            
+            # Build the make command
+            cmd = ['make']
+            if target:
+                cmd.append(target)
+            if parallel_jobs and parallel_jobs > 1:
+                cmd.extend(['-j', str(parallel_jobs)])
+            if verbose:
+                cmd.append('VERBOSE=1')
+            if clean:
+                cmd.append('clean')
+            
+            # Add any additional make arguments
+            if make_args:
+                cmd.extend(make_args)
+            
+            logger.info(f"Running make command: {' '.join(cmd)} in {build_dir}")
+            
+            # Start make process
+            process = subprocess.Popen(
+                cmd,
+                cwd=build_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                bufsize=1
+            )
+            
+            session.process = process
+            build_server._save_sessions()
+            
+            # Monitor the process output with timeout handling
+            output_lines = []
+            
+            # Use poll() instead of blocking wait() to avoid MCP timeout
+            while process.poll() is None:
+                try:
+                    # Read available output with timeout
+                    line = process.stdout.readline()
+                    if line:
+                        output_lines.append(line.rstrip())
+                        session.output_lines.append(f"[MAKE] {line.rstrip()}")
+                    else:
+                        # Brief sleep to avoid busy waiting
+                        time.sleep(0.1)
+                        
+                    # Save progress periodically to maintain session state
+                    if len(output_lines) % 100 == 0:  # Every 100 lines
+                        build_server._save_sessions()
+                        
+                except Exception as read_error:
+                    logger.error(f"Error reading make output: {read_error}")
+                    break
+                    
+            # Read any remaining output
+            try:
+                remaining_output, _ = process.communicate(timeout=5)
+                if remaining_output:
+                    for line in remaining_output.split('\n'):
+                        if line.strip():
+                            session.output_lines.append(f"[MAKE] {line.rstrip()}")
+            except subprocess.TimeoutExpired:
+                logger.warning("Timeout reading remaining make output")
+            
+            # Get final return code
+            return_code = process.returncode
+            
+            if return_code == 0:
+                session.status = "completed"
+                session.return_code = 0
+                logger.info(f"Make completed successfully for session {session.id}")
+            else:
+                session.status = "failed"
+                session.return_code = return_code
+                logger.error(f"Make failed with return code {return_code} for session {session.id}")
+            
+            build_server._save_sessions()
+            
+        except Exception as e:
+            logger.error(f"Make process failed for session {session.id}: {e}")
             session.status = "failed"
-            session.return_code = return_code
-            logger.error(f"Make failed with return code {return_code} for session {session.id}")
-        
-        build_server._save_sessions()
-        
-    except Exception as e:
-        logger.error(f"Make process failed for session {session.id}: {e}")
-        session.status = "failed"
-        session.return_code = -1
-        session.output_lines.append(f"[MAKE] ERROR: {str(e)}")
-        build_server._save_sessions()
+            session.return_code = -1
+            session.output_lines.append(f"[MAKE] ERROR: {str(e)}")
+            build_server._save_sessions()
+    
+    # Start make in a daemon thread to avoid blocking MCP requests
+    make_thread = threading.Thread(target=run_make_in_thread, daemon=True)
+    make_thread.start()
+    
+    # Return immediately - status can be checked via build_status
+    logger.info(f"Make process started in background thread for session {session.id}")
 
 @mcp.tool()
 def build_status(session_id: str = "") -> str:
