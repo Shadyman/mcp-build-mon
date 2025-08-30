@@ -1,3 +1,21 @@
+---
+title: Build Monitor README
+description: README for build monitor in DS3.9 automation MCP.
+category: automation_tools
+subcategory: build_monitor
+status: active
+created: '2025-08-30'
+updated: '2025-08-30'
+author: GitHub Copilot
+tags:
+- build monitor
+- README
+- automation
+- MCP
+date: '2025-08-30'
+ds3.9_frontmatter_version: '1.0'
+---
+
 # MCP Build Monitor
 
 A comprehensive, AI-optimized build monitoring system for CMake/Make projects with intelligent error analysis, resource monitoring, and automated fix suggestions.

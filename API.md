@@ -1,3 +1,21 @@
+---
+title: Build Monitor API Documentation
+description: API documentation for build monitor in DS3.9 automation MCP.
+category: automation_tools
+subcategory: build_monitor
+status: active
+created: '2025-08-30'
+updated: '2025-08-30'
+author: GitHub Copilot
+tags:
+- build monitor
+- API
+- automation
+- MCP
+date: '2025-08-30'
+ds3.9_frontmatter_version: '1.0'
+---
+
 # MCP Build Monitor API Reference
 
 Complete API documentation for AI assistant integration with the universal MCP Build Monitor system for CMake/Make projects.
