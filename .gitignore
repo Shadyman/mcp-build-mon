@@ -50,7 +50,7 @@ build_history.json
 session_data.json
 
 # Research and internal documentation
-RESEARCH_BRIEF.md
+RESEARCH_*.md
 
 # Sensitive configuration files
 *.local
