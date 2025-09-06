@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-
+from modules.resource_monitor import ResourceMonitor
 
 @dataclass
 class BuildSession:
@@ -35,7 +35,7 @@ class BuildSession:
     build_recommendation: Optional[str] = None
     change_impact: Optional[str] = None
     # Resource monitoring fields (Feature 5)
-    resource_monitor: Optional['ResourceMonitor'] = None
+    resource_monitor: Optional[ResourceMonitor] = None
     final_resource_usage: Optional[Dict[str, Any]] = None
     # Dependency tracking fields (Feature 7)
     dependency_changes: Optional[List[Dict[str, Any]]] = None
