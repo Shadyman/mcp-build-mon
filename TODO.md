@@ -21,22 +21,26 @@ ds3.9_frontmatter_version: '1.0'
 ## High Priority Features
 
 ### ✅ COMPLETED: Fix MCP Timeout and Build Flow Issues
-**Status**: ✅ **RESOLVED** (2025-08-29)  
-**Priority**: HIGH - Core Functionality Issue  
+
+**Status**: ✅ **RESOLVED** (2025-08-29)
+**Priority**: HIGH - Core Functionality Issue
 **Description**: Address timeout issues and improve cmake/make execution flow
 
 **Resolution**: MCP timeout errors (error -32001) have been resolved through async threading implementation.
+
 - Converted synchronous blocking operations to background daemon threads
 - Fixed cmake+make workflow with proper session management
 - All builds now return immediately with session IDs for monitoring
 - **Commit**: `a974930` - fix(mcp): resolve timeout errors in build monitor server
 
 **Issues Identified**:
+
 1. **MCP Timeout Errors**: Intermittent "MCP error -32001: Request timed out" during build operations
 2. **Separated Build Phases**: CMake runs successfully but make phase doesn't automatically follow
 3. **Build Flow Logic**: Need unified cmake+make workflow vs separate phase execution
 
 **Required Fixes**:
+
 - [ ] Investigate and resolve MCP timeout root causes (likely async/threading related)
 - [ ] Implement unified build flow: cmake_first=true should automatically run make after cmake success
 - [ ] Add timeout configuration options for different build phases (cmake: 5min, make: 30min+)
@@ -45,59 +49,67 @@ ds3.9_frontmatter_version: '1.0'
 - [ ] Better integration between background threads and MCP request handling
 
 **Technical Details**:
+
 - Current implementation runs cmake async but may not properly chain to make phase
 - Timeout handling needs improvement for long-running builds
 - Session management should be more robust during build phase transitions
 
-### 🚀 NEW: Advanced Build Monitor Enhancement Proposal  
-**Status**: Proposed Implementation Plan Ready  
-**Priority**: HIGH - Development Acceleration  
+### 🚀 NEW: Advanced Build Monitor Enhancement Proposal
+
+**Status**: Proposed Implementation Plan Ready
+**Priority**: HIGH - Development Acceleration
 **Document**: [`BUILD_MONITOR_ENHANCEMENTS.md`](./BUILD_MONITOR_ENHANCEMENTS.md)
 
 **Comprehensive 4-week implementation plan** for transforming the build monitor into a sophisticated development acceleration platform:
 
-**Phase 1** (Week 1): Parallel job count awareness with resource correlation  
-**Phase 2** (Week 2): Package-level compilation learning and tracking  
-**Phase 3** (Week 3): Multi-threaded progress UI with dependency visualization  
-**Phase 4** (Week 4): Integration, testing, and documentation  
+**Phase 1** (Week 1): Parallel job count awareness with resource correlation
+**Phase 2** (Week 2): Package-level compilation learning and tracking
+**Phase 3** (Week 3): Multi-threaded progress UI with dependency visualization
+**Phase 4** (Week 4): Integration, testing, and documentation
 
 **Expected Outcomes**: 90%+ ETA accuracy, real-time package progress, intelligent job count recommendations, and 30%+ faster development cycles.
 
 ---
 
 ### ⚡ URGENT: Deliver Research Brief to Claude Opus 4.1
-**Status**: Ready for Delivery  
-**Priority**: URGENT - High Impact Research  
+
+**Status**: Ready for Delivery
+**Priority**: URGENT - High Impact Research
 **Description**: Comprehensive research brief prepared for Claude Opus 4.1 analysis of Python package integration opportunities
 
 **Deliverable Ready**: `/automation/mcp/build-monitor/RESEARCH_BRIEF.md`
+
 - **33+ pages** of comprehensive technical analysis and context
 - **Live FluffOS build evidence** with real multi-core compilation data
 - **Strategic integration questions** for optimal package selection
 - **Implementation roadmap requirements** with risk/reward analysis
 - **Quantitative benchmarks** and success validation framework
 
-**Research Focus**: 
+**Research Focus**:
+
 1. **Strategic Package Selection**: Which 3-5 packages provide maximum enhancement with minimal integration risk?
-2. **Implementation Roadmap**: Phased integration approach with dependency management  
+2. **Implementation Roadmap**: Phased integration approach with dependency management
 3. **Architecture Preservation**: Maintain MCP compatibility and AI optimization while gaining advanced features
 4. **Performance Impact**: Expected resource overhead and optimization opportunities
 5. **Validation Strategy**: Test and benchmark each integration against current baseline
 
 **Expected Research Outcomes**:
+
 - **Package integration matrix** with complexity/benefit analysis
 - **Architecture migration plan** with phased implementation approach
 - **Proof-of-concept implementations** for top 3 recommended packages
 - **Risk assessment** with mitigation strategies for each integration
 
 **High-Value Research Targets**:
+
 - **`compiledb`/`bear`**: Enhanced compilation process tracking
-- **`networkx`**: Dependency graph analysis and critical path detection  
+- **`networkx`**: Dependency graph analysis and critical path detection
 - **`scikit-build`**: Advanced CMake integration capabilities
 - **`ccache`/`sccache`**: Performance insights and caching metrics
 - **`watchdog`**: Intelligent file change detection for incremental builds
 
 **Business Impact**:
+
 - **Solve parallel job blindness**: Accurate ETAs for different `-j` counts
 - **Enable package-level learning**: Individual package compilation time tracking
 - **Multi-threaded progress displays**: Rich UI capabilities for build dashboards
@@ -110,11 +122,13 @@ ds3.9_frontmatter_version: '1.0'
 ---
 
 ### Parallel Job Count Awareness in Build Learning
-**Status**: Not implemented  
-**Priority**: High  
+
+**Status**: Not implemented
+**Priority**: High
 **Description**: Build monitor currently ignores parallel job count (`-j` flag) when learning build patterns and predicting ETAs
 
 **Current Problem**:
+
 - Build history uses only target names as keys, ignoring parallel job count
 - `-j1` and `-j4` builds are stored under same history key
 - ETA predictions mix data from different parallel job counts
@@ -122,17 +136,19 @@ ds3.9_frontmatter_version: '1.0'
 - Health scoring doesn't account for parallelism impact
 
 **Expected Impact**:
+
 - **Wildly inaccurate ETAs**: A `-j1` build (20 minutes) vs `-j4` build (5 minutes) would average to 12.5 minutes
 - **Poor resource predictions**: Memory/CPU usage varies dramatically with job count
 - **Misleading health scores**: Parallel job failures treated same as single-threaded failures
 
 **Requested Implementation**:
+
 1. **Enhanced Target Keys**: Include parallel job count in build history keys
-   - `"package_sockets_j1"` vs `"package_sockets_j4"` 
+   - `"package_sockets_j1"` vs `"package_sockets_j4"`
    - `"full_build_j8"` vs `"full_build_j2"`
 
 2. **Resource Correlation**: Track resource usage patterns per job count
-   - Memory scaling with parallel jobs (2GB @ j1 vs 8GB @ j4)  
+   - Memory scaling with parallel jobs (2GB @ j1 vs 8GB @ j4)
    - CPU utilization efficiency per job count
    - Optimal job count recommendations per project
 
@@ -141,12 +157,13 @@ ds3.9_frontmatter_version: '1.0'
    - Predict optimal job count for current system resources
    - Account for memory constraints limiting effective parallelism
 
-4. **Health Score Adjustments**: 
+4. **Health Score Adjustments**:
    - Different failure patterns for parallel vs sequential builds
    - Timeout thresholds adjusted for job count
    - Build success rates correlated with parallelism level
 
 **Example Enhanced Response**:
+
 ```json
 {
   "build_history_key": "package_sockets_j4",
@@ -154,7 +171,7 @@ ds3.9_frontmatter_version: '1.0'
   "parallel_efficiency": 85,
   "optimal_job_count": 4,
   "resource_prediction": {
-    "peak_memory": "6.2GB", 
+    "peak_memory": "6.2GB",
     "avg_cpu": "78%",
     "based_on_j4_history": true
   },
@@ -166,19 +183,22 @@ ds3.9_frontmatter_version: '1.0'
 ```
 
 **Benefits**:
+
 - **Accurate ETAs**: Separate predictions for different parallel job counts
 - **Resource optimization**: Learn optimal job counts per project/system
-- **Performance insights**: Understand parallelism efficiency and bottlenecks  
+- **Performance insights**: Understand parallelism efficiency and bottlenecks
 - **System-aware recommendations**: Suggest job counts based on available resources
 
 **Estimated Effort**: High (3-4 weeks implementation + testing)
 
 ### Package-Level Compilation Time Learning
-**Status**: Not implemented  
-**Priority**: High  
+
+**Status**: Not implemented
+**Priority**: High
 **Description**: Learn and predict compilation times for individual packages to enable granular progress tracking and multi-threaded build displays
 
 **Current Limitation**:
+
 - Build monitor only tracks overall build duration
 - No visibility into individual package compilation times
 - Multi-threaded builds show generic "building..." status
@@ -187,16 +207,18 @@ ds3.9_frontmatter_version: '1.0'
 **Requested Implementation**:
 
 1. **Package Detection**: Parse CMake makefiles to identify all buildable packages
+
    ```json
    {
      "detected_packages": [
-       "package_core", "package_sockets", "package_http", 
+       "package_core", "package_sockets", "package_http",
        "package_websocket", "package_zmqtt", "package_external"
      ]
    }
    ```
 
 2. **Real-Time Package Tracking**: Monitor active package builds during compilation
+
    ```json
    {
      "active_packages": {
@@ -208,6 +230,7 @@ ds3.9_frontmatter_version: '1.0'
    ```
 
 3. **Package-Specific Learning**: Build history per package with parallel job awareness
+
    ```json
    {
      "package_history": {
@@ -223,6 +246,7 @@ ds3.9_frontmatter_version: '1.0'
    ```
 
 4. **Multi-Threaded Progress Display**: Enable rich UI progress tracking
+
    ```json
    {
      "build_progress": {
@@ -230,19 +254,19 @@ ds3.9_frontmatter_version: '1.0'
        "packages": [
          {
            "name": "package_core",
-           "status": "completed", 
+           "status": "completed",
            "duration": "1m 22s",
            "health": "good"
          },
          {
            "name": "package_sockets",
            "status": "compiling",
-           "eta": "1m 45s", 
+           "eta": "1m 45s",
            "current_file": "socket_option_validator.cc",
            "progress_pct": 65
          },
          {
-           "name": "package_http", 
+           "name": "package_http",
            "status": "queued",
            "eta": "2m 10s",
            "depends_on": ["package_sockets"]
@@ -258,6 +282,7 @@ ds3.9_frontmatter_version: '1.0'
    - Predict overall completion based on dependency chains
 
 **Use Cases**:
+
 - **Multi-threaded UI**: Show individual package progress bars with ETAs
 - **Build optimization**: Identify consistently slow packages for optimization
 - **Resource planning**: Predict memory/CPU usage patterns per package
@@ -265,6 +290,7 @@ ds3.9_frontmatter_version: '1.0'
 - **Parallel efficiency**: Understand which packages benefit most from parallelization
 
 **Implementation Approach**:
+
 1. **Process Tree Parsing**: Monitor make process hierarchy to identify package builds
 2. **Makefile Analysis**: Parse CMake-generated makefiles for package dependencies
 3. **File Pattern Recognition**: Track compilation of specific source files per package
@@ -272,6 +298,7 @@ ds3.9_frontmatter_version: '1.0'
 5. **Progress Estimation**: Calculate package completion percentage based on file counts
 
 **API Enhancement Example**:
+
 ```json
 {
   "tool": "build_monitor/get_package_status",
@@ -293,24 +320,27 @@ ds3.9_frontmatter_version: '1.0'
 ```
 
 **Benefits**:
+
 - **Granular Progress Tracking**: Real-time visibility into multi-package builds
 - **UI/Dashboard Integration**: Rich progress displays for developers
-- **Build Optimization**: Data-driven package optimization decisions  
+- **Build Optimization**: Data-driven package optimization decisions
 - **Predictive Planning**: Accurate ETAs for complex multi-package builds
 - **Resource Management**: Package-specific resource usage patterns
 
 **Current Evidence from FluffOS Build**:
 Our current build shows packages building in parallel:
+
 - `package_core` (building dumpstat.cc.o)
-- `package_sockets` (compiling socket_option_validator.cc) 
+- `package_sockets` (compiling socket_option_validator.cc)
 - `package_math` (linking libpackage_math.a)
 - `package_matrix` (building matrix.cc.o)
 
 **Estimated Effort**: High (4-5 weeks implementation + comprehensive testing)
 
 ### Research Python Compilation Management Packages
-**Status**: Research Required  
-**Priority**: Medium  
+
+**Status**: Research Required
+**Priority**: Medium
 **Description**: Investigate existing Python packages for compilation management that could be leveraged to enhance the build monitor
 
 **Research Areas**:
@@ -358,6 +388,7 @@ Our current build shows packages building in parallel:
    - `fastapi` - Modern API framework for build monitoring endpoints
 
 **Integration Opportunities**:
+
 - **Replace custom parsing**: Use established libraries for makefile/cmake parsing
 - **Enhanced dependency tracking**: Leverage graph analysis libraries
 - **Better process monitoring**: Use advanced psutil features or specialized tools
@@ -366,6 +397,7 @@ Our current build shows packages building in parallel:
 - **Real-time streaming**: WebSocket integration for live build dashboards
 
 **Research Questions**:
+
 1. Can `compiledb` or `bear` provide better compilation process tracking?
 2. Does `scikit-build` offer CMake integration advantages?
 3. Can `networkx` improve dependency graph analysis and critical path detection?
@@ -374,6 +406,7 @@ Our current build shows packages building in parallel:
 6. Does `buildbot` have reusable components for build monitoring?
 
 **Expected Outcomes**:
+
 - **Reduced development time**: Leverage existing, well-tested libraries
 - **Enhanced capabilities**: Access to features beyond custom implementation
 - **Better integration**: Standard interfaces with other build tools
@@ -382,6 +415,7 @@ Our current build shows packages building in parallel:
 
 **Deliverable**:
 Comprehensive research document with:
+
 - Library comparison matrix (features, performance, integration complexity)
 - Proof-of-concept integrations for top candidates
 - Migration recommendations for current custom implementations
@@ -390,17 +424,20 @@ Comprehensive research document with:
 **Estimated Effort**: Medium (2-3 weeks research + prototyping)
 
 ### CMake Configuration Management
-**Status**: Not implemented  
-**Priority**: High  
+
+**Status**: Not implemented
+**Priority**: High
 **Description**: Add CMakeLists.txt option() management functionality to the build monitor
 
 **Requested Features**:
+
 - **Read CMake options**: Parse CMakeLists.txt to extract `option()` definitions and current values
 - **Set CMake options**: Modify option values before running `cmake ..`
 - **CMake cache management**: Read/write CMake cache variables
 - **Option validation**: Validate option values against defined constraints
 
 **Implementation Approach**:
+
 1. **New MCP Tools**:
    - `cmake_get_options` - Extract all option() definitions from CMakeLists.txt
    - `cmake_set_option` - Set specific option value before cmake execution
@@ -413,6 +450,7 @@ Comprehensive research document with:
    - Integrate with dependency tracking for option changes
 
 3. **Response Format Example**:
+
    ```json
    {
      "cmake_options": {
@@ -427,6 +465,7 @@ Comprehensive research document with:
    ```
 
 **Benefits**:
+
 - Automated CMake configuration management
 - Integration with build monitoring workflow
 - Eliminates manual CMakeLists.txt editing
@@ -439,40 +478,46 @@ Comprehensive research document with:
 ## Medium Priority Features
 
 ### Enhanced Dependency Tracking
+
 - Track CMakeLists.txt changes and recommend full rebuilds
 - Detect package interdependencies for targeted builds
 
 ### Build Configuration Profiles
+
 - Save/restore common build configurations
 - Profile-based option sets (debug, release, testing)
 
 ### Advanced Error Pattern Recognition
+
 - Machine learning for error pattern detection
 - Community-sourced fix suggestions database
 
 ### Multi-Core Build Process Tracking
-**Status**: Feature Request  
-**Priority**: Medium  
+
+**Status**: Feature Request
+**Priority**: Medium
 **Description**: Add MCP tools to expose real-time multi-core build process information
 
 **Current Evidence of Multi-Core Activity** (2025-08-25):
 During active FluffOS build with `make -j 4`, the following parallel processes were observed:
 
 1. **Main make process**: PID 899531 (`make -j 4`) - the build monitor's main process
-2. **CMake coordination**: PID 899536 (`make -s -f CMakeFiles/Makefile2 all`) 
+2. **CMake coordination**: PID 899536 (`make -s -f CMakeFiles/Makefile2 all`)
 3. **Parallel package builds**:
    - **package_core**: PID 900749 - building `dumpstat.cc.o`
-   - **package_sockets**: PID 900879 - compiling `socket_option_validator.cc` 
+   - **package_sockets**: PID 900879 - compiling `socket_option_validator.cc`
    - **package_math**: PID 901232 - linking `libpackage_math.a`
    - **package_matrix**: PID 901311 - building `matrix.cc.o`
 4. **Active GCC compilation**: PID 901197 - the actual C++ compiler (`cc1plus`) working on socket_option_validator.cc with full optimization flags (`-O3`, `-flto=auto`, `-march=native`)
 
 **Requested MCP Tools**:
+
 - `build_monitor/get_active_processes` - Return real-time process tree for current build
 - `build_monitor/get_parallel_status` - Show which packages/files are building in parallel
 - `build_monitor/get_compilation_details` - Expose compiler flags, optimization levels, target files
 
 **Response Format Example**:
+
 ```json
 {
   "build_session_id": "abc123",
@@ -512,6 +557,7 @@ During active FluffOS build with `make -j 4`, the following parallel processes w
 ```
 
 **Benefits**:
+
 - **Real-time visibility**: See exactly what's building across all cores
 - **Performance insights**: Identify bottlenecks in parallel compilation
 - **Progress tracking**: More granular build progress than duration alone
@@ -519,6 +565,7 @@ During active FluffOS build with `make -j 4`, the following parallel processes w
 - **Resource optimization**: Optimize parallel job counts based on actual utilization
 
 **Implementation Considerations**:
+
 - Parse `ps -ef` output to build process tree
 - Track CMake makefile targets and dependencies
 - Monitor compiler process command lines for file/optimization details
@@ -526,6 +573,7 @@ During active FluffOS build with `make -j 4`, the following parallel processes w
 - Filter noise (focus on build-related processes only)
 
 **Use Cases**:
+
 - AI assistants understanding build complexity and progress
 - Developers debugging slow or failed parallel builds
 - Build system optimization and performance tuning
@@ -538,10 +586,12 @@ During active FluffOS build with `make -j 4`, the following parallel processes w
 ## Low Priority Features
 
 ### Build Artifact Management
+
 - Track generated files and build outputs
 - Cleanup utilities for build directories
 
 ### Integration Testing Support
+
 - Test execution integration with build monitoring
 - Test result correlation with build health
 
@@ -550,31 +600,36 @@ During active FluffOS build with `make -j 4`, the following parallel processes w
 ## Bug Reports and Anomalies
 
 ### 🚨 URGENT: .build_sessions.json Naming Inconsistency
-**Date Reported**: 2025-08-28  
-**Status**: Investigation Required  
-**Priority**: URGENT - Git Repository Issue  
+
+**Date Reported**: 2025-08-28
+**Status**: Investigation Required
+**Priority**: URGENT - Git Repository Issue
 **Reporter**: User
 
 **Issue Description**:
 The build monitor creates a hidden file `.build_sessions.json` (with dot prefix) but this file is not gitignored and appears in git status, causing confusion about whether it should be committed or ignored.
 
 **Problem**:
+
 - File is named with dot prefix (`.build_sessions.json`) suggesting it's a hidden config/cache file
-- File is NOT in `.gitignore` so it appears in `git status` 
+- File is NOT in `.gitignore` so it appears in `git status`
 - Unclear if this should be tracked in version control or ignored as local state
 - Naming inconsistency suggests this was an oversight in implementation
 
 **Expected Resolution Options**:
+
 1. **Rename to `build_sessions.json`** (remove dot) if it should be version controlled
 2. **Add to `.gitignore`** if it's meant to be local-only session state
 3. **Move to proper cache directory** like `~/.cache/build-monitor/` or `/tmp/`
 
 **Current Impact**:
+
 - Developers unsure whether to commit or ignore the file
 - Git repository cleanliness affected
 - Inconsistent with standard conventions (dotfiles are usually hidden configs)
 
 **Investigation Needed**:
+
 1. Check if build monitor actually needs persistent session state across runs
 2. Determine if session data should be project-specific or system-wide
 3. Review if other MCP servers follow similar patterns
@@ -585,34 +640,39 @@ The build monitor creates a hidden file `.build_sessions.json` (with dot prefix)
 ---
 
 ### Build Process Execution Anomaly
-**Date Reported**: 2025-08-25  
-**Status**: Investigation Required  
-**Priority**: High  
+
+**Date Reported**: 2025-08-25
+**Status**: Investigation Required
+**Priority**: High
 **Reporter**: Claude Code Assistant
 
 **Issue Description**:
 Anomalous behavior observed when using `build_monitor/start` with combined parameters:
+
 - `cmake_first: true`
-- `clean: true` 
+- `clean: true`
 - `target: ""` (default)
 
 **Expected Behavior**:
 Build monitor should execute the following sequence:
+
 1. `make clean` (clean existing build artifacts)
-2. `cmake ..` (regenerate build configuration)  
+2. `cmake ..` (regenerate build configuration)
 3. `make -j 4` (execute full build)
 
 **Actual Behavior**:
 Build monitor only executed:
+
 1. `make -j 4 clean` (clean step only)
 2. Process completed with `return_code: 0` and `running: false`
 3. No cmake configuration or make build steps were executed
 
 **Build Monitor Response**:
+
 ```json
 {
   "session_id": "73658a8a-4cee-4968-a48f-b9b317625a9b",
-  "status": "started", 
+  "status": "started",
   "command": "make -j 4 clean",
   "return_code": 0,
   "running": false,
@@ -621,35 +681,41 @@ Build monitor only executed:
 ```
 
 **Verification**:
+
 - No FluffOS driver binary was generated
 - Only test libraries found: `/build/src/CMakeFiles/_CMakeLTOTest-*/bin/libfoo.a`
 - Build directory contained cmake cache but no compiled artifacts
 - Subsequent `build_monitor/start` with `cmake_first: false` successfully executed full build
 
 **Potential Root Causes**:
+
 1. **Parameter Conflict**: `cmake_first: true` + `clean: true` combination may not be handled correctly
 2. **Process Management**: Build monitor may terminate after clean step instead of continuing
 3. **Command Sequencing**: Multi-step build process may not be properly orchestrated
 4. **Status Reporting**: Build monitor may report completion prematurely
 
 **Impact**:
+
 - **High**: Users may believe builds completed successfully when only cleaning occurred
 - **Verification Gap**: Return code success doesn't guarantee full build completion
 - **Workflow Disruption**: Forces manual verification of build artifacts
 
 **Workaround**:
 Execute build process in separate steps:
+
 1. `build_monitor/start` with `clean: true` only
-2. `build_monitor/start` with `cmake_first: true` only  
+2. `build_monitor/start` with `cmake_first: true` only
 3. `build_monitor/start` with `target: ""` for actual build
 
 **Recommended Investigation**:
+
 1. **Code Review**: Examine build process orchestration logic
 2. **Parameter Validation**: Test all parameter combinations systematically
 3. **Process Monitoring**: Add intermediate status reporting for multi-step builds
 4. **Artifact Verification**: Consider adding build output validation to status responses
 
 **Additional Context**:
+
 - Project: FluffOS socket development build
 - Build Environment: CMake + Make (4 parallel jobs)
 - Build Duration Expected: 5-10 minutes for full build
@@ -659,56 +725,63 @@ Execute build process in separate steps:
 
 ## AI/LLM Integration Research
 
-### 🔬 Multi-Agent Workflow Investigation  
-**Status**: Research Required  
-**Priority**: Medium - Future Architecture Planning  
+### 🔬 Multi-Agent Workflow Investigation
+
+**Status**: Research Required
+**Priority**: Medium - Future Architecture Planning
 **Description**: Investigate modern LLM proxy and gateway systems for multi-agent workflows
 
 **Research Targets**:
 
 1. **LiteLLM (BerriAI/litellm)**
-   - **URL**: https://github.com/BerriAI/litellm
+   - **URL**: <https://github.com/BerriAI/litellm>
    - **Focus**: OpenAI-compatible proxy for 100+ LLMs
    - **Use Case**: Unified API for multiple model providers (Claude, GPT, Gemini, etc.)
    - **Evaluation**: Cost optimization, failover strategies, rate limiting
    - **Integration Potential**: MCP server model switching, build optimization recommendations
 
-2. **Cloudflare AI Gateway (Beta)**  
-   - **URL**: https://blog.cloudflare.com/ai-gateway-aug-2025-refresh/
+2. **Cloudflare AI Gateway (Beta)**
+   - **URL**: <https://blog.cloudflare.com/ai-gateway-aug-2025-refresh/>
    - **Focus**: Caching, analytics, rate limiting for AI applications
    - **Use Case**: Cost reduction through intelligent caching, usage analytics
    - **Evaluation**: Integration with existing MCP architecture
    - **Benefits**: Global edge caching, cost tracking, security features
 
 **Research Questions**:
+
 - How could multi-model support improve build recommendations?
 - What cost savings are possible through intelligent routing/caching?
 - Could agent specialization (build analysis vs code generation) improve outcomes?
 - Integration patterns with existing MCP server architecture?
 
 **Deliverables**:
+
 - [ ] LiteLLM integration proof-of-concept
 - [ ] Cloudflare AI Gateway cost analysis
 - [ ] Multi-agent workflow architecture proposal
 - [ ] Integration strategy with current MCP build monitor
 
 ### 💰 Azure AI Pricing Analysis
-**Status**: Data Collection Required  
-**Priority**: Medium - Cost Optimization Research  
+
+**Status**: Data Collection Required
+**Priority**: Medium - Cost Optimization Research
 **Description**: Comprehensive Azure AI pricing ingestion and analysis for multi-region deployments
 
 **Data Sources**:
-- **Primary**: https://azure.microsoft.com/en-us/pricing/details/phi-3/#pricing
+
+- **Primary**: <https://azure.microsoft.com/en-us/pricing/details/phi-3/#pricing>
 - **Models**: Phi-3, GPT-4, Claude (if available), Gemini integrations
 - **Regions**: All available Azure regions for pricing comparison
 
 **Analysis Requirements**:
+
 1. **Regional Price Variations**: Cost differences across Azure regions
 2. **Model Comparison Matrix**: Price/performance analysis per model type
-3. **Usage Pattern Optimization**: Best pricing tiers for development workflows  
+3. **Usage Pattern Optimization**: Best pricing tiers for development workflows
 4. **Integration Cost Modeling**: Total cost of ownership for MCP integration
 
 **Implementation Tasks**:
+
 - [ ] Web scraping script for Azure AI pricing data
 - [ ] Database schema for multi-region pricing storage
 - [ ] Pricing trend analysis and alerting system
@@ -716,25 +789,27 @@ Execute build process in separate steps:
 - [ ] Integration with existing MCP cost tracking
 
 **Expected Outcomes**:
+
 - Real-time Azure AI pricing database
 - Regional deployment cost recommendations
 - Model selection guidance based on price/performance
 - Budget planning tools for AI-powered development workflows
 
 ### 🛠️ VSCode AI Extensions Investigation
-**Status**: Extensions Available - Analysis Required  
-**Priority**: Medium - Development Tools Integration  
+
+**Status**: Extensions Available - Analysis Required
+**Priority**: Medium - Development Tools Integration
 **Description**: Investigate and integrate available VSCode AI extensions for enhanced development workflows
 
 **Currently Installed Extensions**:
 
 1. **Azure AI Foundry** (`teamsdevapp.vscode-ai-foundry@0.9.0`)
-   - **Status**: ✅ **INSTALLED AND AVAILABLE** 
+   - **Status**: ✅ **INSTALLED AND AVAILABLE**
    - **Purpose**: Azure AI model deployment and management from VSCode
    - **Integration Potential**: Direct Azure AI model access for build optimization
    - **Investigation**: Model deployment workflows, pricing integration
 
-2. **AI Toolkit** (`ms-windows-ai-studio.windows-ai-studio@0.18.3`)  
+2. **AI Toolkit** (`ms-windows-ai-studio.windows-ai-studio@0.18.3`)
    - **Status**: ✅ **INSTALLED AND AVAILABLE**
    - **Also Known As**: Windows AI Studio
    - **Purpose**: Local AI model development, testing, and deployment
@@ -743,11 +818,12 @@ Execute build process in separate steps:
 
 3. **GitHub Copilot Suite**:
    - `github.copilot@1.364.1768` - Core Copilot functionality
-   - `github.copilot-chat@0.30.3` - Chat interface  
+   - `github.copilot-chat@0.30.3` - Chat interface
    - `ms-vscode.copilot-mermaid-diagram@0.0.3` - Diagram generation
    - `ms-vscode.vscode-websearchforcopilot@0.1.2` - Web search integration
 
 **Research Tasks**:
+
 - [ ] **Azure AI Foundry Extension Analysis**: Model deployment capabilities, pricing integration
 - [ ] **Windows AI Studio Evaluation**: Local model testing for build optimization
 - [ ] **Extension API Integration**: Programmatic access to AI models through extensions
@@ -755,22 +831,27 @@ Execute build process in separate steps:
 - [ ] **Cost Comparison**: Local (Windows AI Studio) vs Cloud (Azure AI Foundry) model costs
 
 **Missing Extensions to Investigate**:
+
 - [ ] **AI Toolkit** (search for official Microsoft/third-party AI toolkit extensions)
 - [ ] **Azure OpenAI Service** extensions
 - [ ] **Other LLM provider integrations** (Anthropic, Google, Meta)
 
 **Expected Integration Outcomes**:
+
 - Direct access to Azure AI models through VSCode for build analysis
-- Local AI model testing capabilities for development optimization  
+- Local AI model testing capabilities for development optimization
 - Integrated pricing and cost analysis across local/cloud AI deployments
 - Enhanced MCP server capabilities with direct model access
 
 ---
 
 ## Completed Features
+
 - ✅ Build execution and monitoring
 - ✅ Error categorization and fix suggestions
 - ✅ Resource usage tracking
 - ✅ Build health scoring
 - ✅ Dependency change detection
 - ✅ Comprehensive API documentation
+
+**TODO:** Add tests so the github python application workflow will run successfully.
